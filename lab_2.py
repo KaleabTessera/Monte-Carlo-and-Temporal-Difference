@@ -325,6 +325,17 @@ def SARSA(env, num_episodes, discount_factor=1.0, epsilon=0.1, alpha=0.5, print_
         Q is the optimal action-value function, a dictionary mapping state -> action values.
         stats is an EpisodeStats object with two numpy arrays for episode_lengths and episode_rewards.
     """
+    def epsilon_greedy(policy, state):
+        action_prob = policy(state)
+        # Epsilon greedy
+        r = np.random.uniform(0, 1)
+        if(r > epsilon):
+            action = np.argmax(action_prob)
+        else:
+            action = np.random.randint(
+                low=0, high=env.action_space.n)
+        return action
+
     # A nested dictionary that maps state -> (action -> action-value).
     Q = defaultdict(lambda: np.zeros(env.action_space.n))
 
@@ -336,79 +347,32 @@ def SARSA(env, num_episodes, discount_factor=1.0, epsilon=0.1, alpha=0.5, print_
         episode_lengths=np.zeros(num_episodes),
         episode_rewards=np.zeros(num_episodes))
 
-    # Update statistics after getting a reward - use within loop, call the following lines
-    # stats.episode_rewards[i_episode] += reward
-    # stats.episode_lengths[i_episode] = t
-
-    raise NotImplementedError
-
-
-def q_learning(env, num_episodes, discount_factor=1.0, alpha=0.5, epsilon=0.1):
-    """
-    Q-Learning algorithm: Off-policy TD control. Finds the optimal greedy policy
-    while following an epsilon-greedy policy
-
-    Args:
-        env: OpenAI environment.
-        num_episodes: Number of episodes to run for.
-        discount_factor: Gamma discount factor.
-        alpha: TD learning rate.
-        epsilon: Chance to sample a random action. Float between 0 and 1.
-
-    Returns:
-        A tuple (Q, episode_lengths).
-        Q is the optimal action-value function, a dictionary mapping state -> action values.
-        stats is an EpisodeStats object with two numpy arrays for episode_lengths and episode_rewards.
-    """
-
-    # The final action-value function.
-    # A nested dictionary that maps state -> (action -> action-value).
-    Q = defaultdict(lambda: np.zeros(env.action_space.n))
-
-    # Keeps track of useful statistics
-    stats = plotting.EpisodeStats(
-        episode_lengths=np.zeros(num_episodes),
-        episode_rewards=np.zeros(num_episodes))
-
-    # The policy we're following
-    policy = make_epsilon_greedy_policy(Q, epsilon, env.action_space.n)
-
     for i_episode in range(num_episodes):
-        # Print out which episode we're on, useful for debugging.
-        if (i_episode + 1) % 100 == 0:
+        if(print_ and ((i_episode + 1) % 100 == 0)):
             print("\rEpisode {}/{}.".format(i_episode + 1, num_episodes), end="")
-            sys.stdout.flush()
 
-        # Reset the environment and pick the first action
         state = env.reset()
+        for j in itertools.count():
+            action = epsilon_greedy(policy, state)
+            next_state, reward, done, info = env.step(action)
 
-        # One step in the environment
-        # total_reward = 0.0
-        for t in itertools.count():
+            next_action = epsilon_greedy(policy, next_state)
 
-            # Take a step
-            action_probs = policy(state)
-            action = np.random.choice(
-                np.arange(len(action_probs)), p=action_probs)
-            next_state, reward, done, _ = env.step(action)
-
-            # Update statistics
+            # Update statistics after getting a reward - use within loop, call the following lines
             stats.episode_rewards[i_episode] += reward
-            stats.episode_lengths[i_episode] = t
+            stats.episode_lengths[i_episode] = j
 
-            # TD Update
-            best_next_action = np.argmax(Q[next_state])
-            td_target = reward + discount_factor * \
-                Q[next_state][best_next_action]
-            td_delta = td_target - Q[state][action]
-            Q[state][action] += alpha * td_delta
-
+            # TD update
+            # best_action_next_state = np.argmax(Q[next_state])
+            Q[state][action] = Q[state][action] + alpha * \
+                (reward + discount_factor *
+                 Q[next_state][next_action] - Q[state][action])
+            state = next_state
             if done:
                 break
-
-            state = next_state
-
     return Q, stats
+
+    # raise NotImplementedError
 
 
 def q_learning(env, num_episodes, discount_factor=1.0, epsilon=0.05, alpha=0.5, print_=False):
@@ -430,6 +394,17 @@ def q_learning(env, num_episodes, discount_factor=1.0, epsilon=0.05, alpha=0.5, 
         stats is an EpisodeStats object with two numpy arrays for episode_lengths and episode_rewards.
     """
 
+    def epsilon_greedy(policy, state):
+        action_prob = policy(state)
+        # Epsilon greedy
+        r = np.random.uniform(0, 1)
+        if(r > epsilon):
+            action = np.argmax(action_prob)
+        else:
+            action = np.random.randint(
+                low=0, high=env.action_space.n)
+        return action
+
     # A nested dictionary that maps state -> (action -> action-value).
     Q = defaultdict(lambda: np.zeros(env.action_space.n))
 
@@ -447,14 +422,7 @@ def q_learning(env, num_episodes, discount_factor=1.0, epsilon=0.05, alpha=0.5, 
 
         state = env.reset()
         for j in itertools.count():
-            action_prob = policy(state)
-            # Epsilon greedy
-            r = np.random.uniform(0, 1)
-            if(r > epsilon):
-                action = np.argmax(action_prob)
-            else:
-                action = np.random.randint(
-                    low=0, high=env.action_space.n)
+            action = epsilon_greedy(policy, state)
 
             next_state, reward, done, info = env.step(action)
 
@@ -529,13 +497,13 @@ def run_td():
     cliffwalking_env = gym.make('CliffWalking-v0')
     cliffwalking_env.render()
 
-    # print('SARSA\n')
-    # sarsa_q_values, stats_sarsa = SARSA(cliffwalking_env, num_episodes=num_episodes,
-    #                                     discount_factor=discount_factor, epsilon=epsilon,
-    #                                     alpha=alpha, print_=True)
-    # td_plot_episode_stats(stats_sarsa, "SARSA")
-    # td_plot_values(sarsa_q_values, "SARSA")
-    # print('')
+    print('SARSA\n')
+    sarsa_q_values, stats_sarsa = SARSA(cliffwalking_env, num_episodes=num_episodes,
+                                        discount_factor=discount_factor, epsilon=epsilon,
+                                        alpha=alpha, print_=True)
+    td_plot_episode_stats(stats_sarsa, "SARSA")
+    td_plot_values(sarsa_q_values, "SARSA")
+    print('')
 
     print('Q learning\n')
     ql_q_values, stats_q_learning = q_learning(cliffwalking_env, num_episodes=num_episodes,
@@ -548,5 +516,5 @@ def run_td():
 
 
 if __name__ == '__main__':
-    # run_mc()
+    run_mc()
     run_td()
