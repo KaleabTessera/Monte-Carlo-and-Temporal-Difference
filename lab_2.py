@@ -187,14 +187,15 @@ def mc_prediction(policy, env, num_episodes, discount_factor=1.0, max_steps_per_
             print("\rEpisode {}/{}.".format(i, num_episodes), end="")
 
         G = 0
-        observation = env.reset()
+        state = env.reset()
         episode = []
         for j in range(max_steps_per_episode):
-            action = policy(observation)
-            observation, reward, done, info = env.step(action)
-            episode.append((observation, action, reward))
+            action = policy(state)
+            next_state, reward, done, info = env.step(action)
+            episode.append((state, action, reward))
             if done:
                 break
+            state= next_state
 
         for e in episode:
             state = e[0]
@@ -261,6 +262,17 @@ def mc_control_epsilon_greedy(env, num_episodes, discount_factor=1.0, epsilon=0.
         policy is a function that takes an observation as an argument and returns
         action probabilities
     """
+    def epsilon_greedy(policy, state):
+        action_prob = policy(state)
+        # Epsilon greedy
+        r = np.random.uniform(0, 1)
+        if(r > epsilon):
+            action = np.argmax(action_prob)
+        else:
+            action = np.random.randint(
+                low=0, high=env.action_space.n)
+        return action
+
     Q = defaultdict(lambda: np.zeros(env.action_space.n))
     policy = make_epsilon_greedy_policy(
         Q, epsilon, env.action_space.n)
@@ -271,20 +283,15 @@ def mc_control_epsilon_greedy(env, num_episodes, discount_factor=1.0, epsilon=0.
             print("\rEpisode {}/{}.".format(i, num_episodes), end="")
 
         G = 0
-        observation = env.reset()
+        state = env.reset()
         episode = []
         for j in range(max_steps_per_episode):
-            action_prob = policy(observation)
-            r = np.random.uniform(0, 1)
-            if(r > epsilon):
-                action = np.argmax(action_prob)
-            else:
-                action = np.random.randint(
-                    low=0, high=env.action_space.n)
-            observation, reward, done, info = env.step(action)
-            episode.append((observation, action, reward))
+            action = epsilon_greedy(policy,state)
+            next_state, reward, done, info = env.step(action)
+            episode.append((state, action, reward))
             if done:
                 break
+            state = next_state
 
         for e in episode:
             state = e[0]
