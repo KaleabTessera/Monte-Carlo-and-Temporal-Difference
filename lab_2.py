@@ -276,7 +276,6 @@ def mc_control_epsilon_greedy(env, num_episodes, discount_factor=1.0, epsilon=0.
         state = env.reset()
         episode = []
         for j in range(max_steps_per_episode):
-            # action = epsilon_greedy(policy, state)
             probs = policy(state)
             action = np.random.choice(np.arange(len(probs)), p=probs)
             next_state, reward, done, info = env.step(action)
@@ -303,6 +302,7 @@ def mc_control_epsilon_greedy(env, num_episodes, discount_factor=1.0, epsilon=0.
             Q[state][action] = returns[state_action_pair] / \
                 returns_count[state_action_pair]
 
+            # Update Policy
             policy = make_epsilon_greedy_policy(Q, epsilon, env.action_space.n)
 
     return Q, policy
@@ -326,17 +326,6 @@ def SARSA(env, num_episodes, discount_factor=1.0, epsilon=0.1, alpha=0.5, print_
         Q is the optimal action-value function, a dictionary mapping state -> action values.
         stats is an EpisodeStats object with two numpy arrays for episode_lengths and episode_rewards.
     """
-    def epsilon_greedy(policy, state):
-        action_prob = policy(state)
-        # Epsilon greedy
-        r = np.random.uniform(0, 1)
-        if(r > epsilon):
-            action = np.argmax(action_prob)
-        else:
-            action = np.random.randint(
-                low=0, high=env.action_space.n)
-        return action
-
     # A nested dictionary that maps state -> (action -> action-value).
     Q = defaultdict(lambda: np.zeros(env.action_space.n))
 
@@ -353,14 +342,12 @@ def SARSA(env, num_episodes, discount_factor=1.0, epsilon=0.1, alpha=0.5, print_
             print("\rEpisode {}/{}.".format(i_episode + 1, num_episodes), end="")
 
         state = env.reset()
-        # action = epsilon_greedy(policy, state)
         action_probs = policy(state)
         action = np.random.choice(
             np.arange(len(action_probs)), p=action_probs)
 
         for j in itertools.count():
             next_state, reward, done, info = env.step(action)
-            # next_action = epsilon_greedy(policy, next_state)
             next_action_probs = policy(next_state)
             next_action = np.random.choice(
                 np.arange(len(next_action_probs)), p=next_action_probs)
@@ -370,7 +357,6 @@ def SARSA(env, num_episodes, discount_factor=1.0, epsilon=0.1, alpha=0.5, print_
             stats.episode_lengths[i_episode] = j
 
             # TD update
-            # best_action_next_state = np.argmax(Q[next_state])
             Q[state][action] = Q[state][action] + alpha * \
                 (reward + discount_factor *
                  Q[next_state][next_action] - Q[state][action])
@@ -379,8 +365,6 @@ def SARSA(env, num_episodes, discount_factor=1.0, epsilon=0.1, alpha=0.5, print_
             if done:
                 break
     return Q, stats
-
-    # raise NotImplementedError
 
 
 def q_learning(env, num_episodes, discount_factor=1.0, epsilon=0.05, alpha=0.5, print_=False):
@@ -402,17 +386,6 @@ def q_learning(env, num_episodes, discount_factor=1.0, epsilon=0.05, alpha=0.5, 
         stats is an EpisodeStats object with two numpy arrays for episode_lengths and episode_rewards.
     """
 
-    def epsilon_greedy(policy, state):
-        action_prob = policy(state)
-        # Epsilon greedy
-        r = np.random.uniform(0, 1)
-        if(r > epsilon):
-            action = np.argmax(action_prob)
-        else:
-            action = np.random.randint(
-                low=0, high=env.action_space.n)
-        return action
-
     # A nested dictionary that maps state -> (action -> action-value).
     Q = defaultdict(lambda: np.zeros(env.action_space.n))
 
@@ -430,7 +403,6 @@ def q_learning(env, num_episodes, discount_factor=1.0, epsilon=0.05, alpha=0.5, 
 
         state = env.reset()
         for j in itertools.count():
-            # action = epsilon_greedy(policy, state)
             # Step
             action_probs = policy(state)
             action = np.random.choice(
@@ -443,11 +415,13 @@ def q_learning(env, num_episodes, discount_factor=1.0, epsilon=0.05, alpha=0.5, 
             stats.episode_lengths[i_episode] = j
 
             # TD update
-            best_action_next_state = np.argmax(Q[next_state])
+            best_action_next_state = argmax(Q[next_state])
             Q[state][action] = Q[state][action] + alpha * \
                 (reward + discount_factor *
                  Q[next_state][best_action_next_state] - Q[state][action])
             state = next_state
+
+            policy = make_epsilon_greedy_policy(Q, epsilon, env.action_space.n)
             if done:
                 break
     return Q, stats
